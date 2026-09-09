@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
 cd /d "%~dp0"
 
 set "APP_VERSION=%~1"
@@ -11,13 +11,14 @@ set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
 
-if not exist "%ISCC%" (
-    echo Inno Setup is required to build DeployDiffSetup.exe.
-    echo Install it with:
-    echo winget install --id JRSoftware.InnoSetup -e --source winget
-    goto :error
-)
+if exist "%ISCC%" goto :build_installer
 
+echo Inno Setup is required to build DeployDiffSetup.exe.
+echo Install it with:
+echo winget install --id JRSoftware.InnoSetup -e --source winget
+goto :error
+
+:build_installer
 echo Building installer for version %APP_VERSION%...
 "%ISCC%" "/DMyAppVersion=%APP_VERSION%" "installer.iss" || goto :error
 
