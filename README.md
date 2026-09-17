@@ -42,6 +42,39 @@ fc-cache -f
 
 Qt가 xcb 라이브러리 부족을 안내한다면 Ubuntu에서 `sudo apt install libxcb-cursor0`로 해당 의존성을 설치할 수 있습니다. 다른 이름의 라이브러리를 안내하는 오류라면 그 메시지를 확인해야 합니다.
 
+## PostgreSQL 연결 준비
+
+PostgreSQL은 비교 결과의 요약과 실행 시각을 `comparison_history` 테이블에 보관합니다. 현재 단계에서는 GUI 비교와 자동 연결하지 않았으며, 아래 스모크 테스트에서만 저장합니다.
+
+`.env.example`을 `.env`로 복사하고 실제 접속 정보를 입력합니다. `.env`는 Git에서 제외되므로 커밋하지 않습니다.
+
+```cmd
+copy .env.example .env
+```
+
+로컬 PostgreSQL의 관리자 비밀번호를 알고 있다면 초기화 스크립트를 실행합니다. 관리자 비밀번호는 화면에 표시되거나 파일에 저장되지 않습니다. 스크립트는 `deploydiff` 역할과 데이터베이스를 준비하고, 역할 비밀번호를 `.env`의 값과 일치시킨 뒤 테이블을 생성합니다.
+
+```cmd
+python setup_postgres.py
+```
+
+DBeaver에서 직접 연습하려면 `postgres` 연결의 SQL 편집기에서 아래 명령을 실행해도 됩니다. 비밀번호는 `.env`의 `DB_PASSWORD`와 같은 값으로 입력하세요.
+
+```sql
+CREATE USER deploydiff WITH PASSWORD '여기에-실제-비밀번호';
+CREATE DATABASE deploydiff OWNER deploydiff;
+```
+
+이미 역할이 있다면 `CREATE USER` 대신 `ALTER USER deploydiff WITH PASSWORD '여기에-실제-비밀번호';`를 사용합니다.
+
+연결, 테이블 생성, 테스트 데이터 INSERT와 SELECT를 한 번에 확인합니다.
+
+```cmd
+python db_smoke_test.py
+```
+
+`schema.sql`은 `CREATE TABLE IF NOT EXISTS`를 사용하므로 여러 번 실행해도 기존 이력을 지우지 않습니다. 개발 중 테이블을 완전히 초기화하려면 PostgreSQL에서 명시적으로 `DROP TABLE comparison_history;`를 실행한 뒤 스모크 테스트를 다시 실행하세요. 이 명령은 기존 비교 이력을 모두 삭제하므로 주의해야 합니다.
+
 ## 화면 사용법
 
 처음에는 왼쪽에 `samples/left`, 오른쪽에 `samples/right`를 선택해보세요. `config/`와 그 안의 설정 파일은 변경, `added.txt`는 추가, `removed.txt`는 삭제, `same.txt`는 동일로 나타납니다. 설정 파일을 더블클릭하면 포트 변경과 timeout 줄 추가를 확인할 수 있습니다.
@@ -75,6 +108,8 @@ Windows 탐색기와 WSL의 GUI 사이에서는 드래그 전달이 되지 않�
 `engine.py`는 폴더와 파일을 읽고 결과를 만듭니다. 파일 크기가 다르면 바로 변경으로 판단하고, 크기가 같으면 1 MiB씩 읽어 바이트를 비교합니다. 텍스트 줄 정렬에는 Python 표준 라이브러리의 `difflib`를 사용합니다.
 
 `main.py`는 좌우 입력 영역과 결과 표시를 담당합니다. PySide6는 Python에서 Qt 창과 버튼을 만드는 라이브러리입니다. 파일 읽기는 QThread에서 실행하고 결과는 신호로 화면에 전달합니다. 이 구조는 [Qt의 QThread 문서](https://doc.qt.io/qtforpython-6/PySide6/QtCore/QThread.html)를 참고했습니다. 비교 중에도 창의 이벤트를 처리할 수 있지만, 큰 결과를 표에 넣는 순간에는 지연될 수 있습니다. 취소 기능은 아직 없으므로 비교가 끝난 뒤 종료합니다.
+
+`database.py`는 환경변수 로드, PostgreSQL 연결, 스키마 생성, 비교 이력 저장과 조회를 담당합니다. `schema.sql`은 데이터베이스 구조를 코드와 분리해 명확하게 보여주며, `db_smoke_test.py`는 DB 기반이 실제로 동작하는지 확인합니다. GUI와 DB를 분리했기 때문에 DB 설정이 없어도 기존 파일 비교 프로그램은 그대로 실행할 수 있습니다.
 
 검증은 프로젝트 폴더에서 실행합니다. 별도 테스트 패키지는 필요하지 않습니다.
 

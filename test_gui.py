@@ -10,7 +10,13 @@ from main import Window
 class GuiTest(unittest.TestCase):
     def test_compare_open_filter_and_return(self):
         app = QApplication.instance() or QApplication([])
-        window = Window()
+        saved = []
+
+        def fake_save(old_path, new_path, entries):
+            saved.append((old_path, new_path, list(entries)))
+            return 42
+
+        window = Window(history_saver=fake_save)
         def wait_for(predicate):
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
@@ -29,6 +35,8 @@ class GuiTest(unittest.TestCase):
                 panel.path.setText(str(root))
             window.start()
             wait_for(lambda: window.folder_view and not window.job.isRunning())
+            self.assertEqual(len(saved), 1)
+            self.assertIn('#42', window.db_badge.text())
             self.assertEqual(window.panels[0].table.rowCount(), 1)
             window.open_entry(0,0)
             wait_for(lambda: not window.folder_view and not window.job.isRunning())
@@ -42,6 +50,7 @@ class GuiTest(unittest.TestCase):
                 panel.path.setText(str(root/'test.txt'))
             window.start()
             wait_for(lambda: not window.folder_mode and window.panels[0].table.rowCount()==3 and not window.job.isRunning())
+            self.assertEqual(len(saved), 2)
             window.close()
 
 
